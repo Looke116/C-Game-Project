@@ -1,6 +1,6 @@
 //#include "boost/asio.hpp" 	// Networking Library -- might change later idk
 #include <SDL.h> 					// Graphics Library
-#include "engine.h"			// Classes and SLD wrapper
+#include "engine.h"				// Classes and SLD wrapper
 
 #include <iostream>
 
@@ -23,7 +23,7 @@ int main(int argc, char *args[]) {
 	SDL_Rect floor = { 0, 720 - floorHeight, 1280, floorHeight };
 	SDL_Event event;
 
-	Entity companionCube { 100, 720 - 180 - 51, 50, 50, SCREEN_WIDTH, SCREEN_HEIGHT };
+	Entity companionCube { 100, 400, 50, 50, SCREEN_WIDTH, SCREEN_HEIGHT };
 
 	if (!init()) {
 		printf("Failed to initialize");
@@ -42,27 +42,29 @@ int main(int argc, char *args[]) {
 			if (currentKeyStates[SDL_SCANCODE_ESCAPE]) {
 				quit = true;
 			} else if (currentKeyStates[SDL_SCANCODE_UP] || currentKeyStates[SDL_SCANCODE_W]) {
-				companionCube.setSpeed(0, 10);
+				companionCube.setSpeedY(-20);
 			} else if (currentKeyStates[SDL_SCANCODE_DOWN] || currentKeyStates[SDL_SCANCODE_S]) {
-				// Do nothing here
+				companionCube.setSpeedY(20);
 			} else if (currentKeyStates[SDL_SCANCODE_LEFT] || currentKeyStates[SDL_SCANCODE_A]) {
-				companionCube.setSpeed(-10, 0);
+				companionCube.setSpeedX(-10);
 			} else if (currentKeyStates[SDL_SCANCODE_RIGHT] || currentKeyStates[SDL_SCANCODE_D]) {
-				companionCube.setSpeed(10, 0);
+				companionCube.setSpeedX(10);
 			}
 		}
+//		SDL_Delay(5);
 
-		//Clear screen
+		// Clear screen
 		SDL_SetRenderDrawColor(renderer, 0x99, 0x99, 0x99, 0xFF);
 		SDL_RenderClear(renderer);
 
+		// Draw the floor
 		SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0xFF, 0xFF);
 		SDL_RenderFillRect(renderer, &floor);
 
 		companionCube.move(&floor);
 		companionCube.draw(renderer);
 
-		//Update screen
+		// Update screen
 		SDL_RenderPresent(renderer);
 	}
 

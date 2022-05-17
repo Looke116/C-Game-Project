@@ -1,5 +1,5 @@
-#import <SDL.h>
-#import <string>
+#include <SDL.h>
+#include <string>
 
 /*
  * To Semei:
@@ -18,6 +18,37 @@
  * rest for now.
  */
 
+class LTimer {
+public:
+	//Initializes variables
+	LTimer();
+
+	//The various clock actions
+	void start();
+	void stop();
+	void pause();
+	void unpause();
+	void reset();
+
+	//Gets the timer's time
+	Uint32 getTicks();
+
+	//Checks the status of the timer
+	bool isStarted();
+	bool isPaused();
+
+private:
+	//The clock time when the timer started
+	Uint32 startTicks;
+
+	//The ticks stored when the timer was paused
+	Uint32 pausedTicks;
+
+	//The timer status
+	bool started;
+	bool paused;
+};
+
 class Entity {
 public:
 	// Empty constructor
@@ -27,9 +58,9 @@ public:
 	Entity(int x, int y, int width, int height, int screenWidth, int screenHeight);
 
 	// Destructor
-	~Entity();
+//	~Entity();
 
-	enum collisionDirection {
+	enum collisionDirection {  // enumerator
 		NO_COLLISION,
 		TOP_COLLISION,
 		BOTTOM_COLLISION,
@@ -39,27 +70,43 @@ public:
 		TOP_RIGHT_COLLISION,
 		BOTTOM_LEFT_COLLISION,
 		BOTTOM_RIGHT_COLLISION,
+		RIGHT_WALL_COLLISION,
+		LEFT_WALL_COLLISION,
+		ALL_SIDES,
+		OUT_OF_BOUNDS,
 	};
+
+	LTimer timer;
 
 	// Getters and Setters
 	int getGravity();
 	void setGravity(int gravity);
 	void setSpeed(int x, int y);
+	void setSpeedX(int x);
+	void setSpeedY(int y);
+	SDL_Rect getBoundingBox();
 
 	void draw(SDL_Renderer *renderer);
+	void updatePos();
+	void updateSpeed();
+	void handleCollision(int collisionTypem, SDL_Rect *collisionTarget);
 	void move(SDL_Rect *collisionTarget);
+	void move(SDL_Rect *collisionTargets[]);
 
 protected:
-	int checkCollision(const  SDL_Rect *rect);
+	int checkCollision(const SDL_Rect *rect);
 
+// These might need to be change to protected instead of private
 private:
 	short int gravity;
 	short int xSpeed;
 	short int ySpeed;
-	short int maxVel;
+	short int maxSpeed;
 
-	unsigned short int SCREEN_WIDTH;
-	unsigned short int SCREEN_HEIGHT;
+	bool onGround;
+
+	const unsigned short int SCREEN_WIDTH;
+	const unsigned short int SCREEN_HEIGHT;
 
 	/* Values from 100 to 0
 	 * Works like a percentage of velocity transfer/loss
@@ -77,8 +124,8 @@ public:
 	~Tank();
 
 private:
-	unsigned short int health;
-	unsigned short int shield;
+//	unsigned short int health;
+//	unsigned short int shield;
 };
 
 class Projectile: Entity {
@@ -99,7 +146,7 @@ public:
 private:
 	// Open to ideas
 	enum powerUpTypes {
-		HEALTH, 						// Gives Health and Shield based on a fixed amount or random if skill tree is added
+		HEALTH, // Gives Health and Shield based on a fixed amount or random if skill tree is added
 		WEAPONS,					// Gives between 1-3 weapons
 		TELEPORT,					// Teleports the player to a random place on the map
 		OVER_POWERED_BS	// idk something overpower with a low spawn chance cuz why not ;)
