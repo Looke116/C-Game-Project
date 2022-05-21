@@ -1,5 +1,202 @@
+#include <SDL_image.h>			// Extension Library for using images/textures
+#include <SDL_ttf.h>
 #include <cmath>
+#include <cstring>
 #include "engine.h"
+
+//Timer::Timer() {
+//	startTicks = 0;
+//	pausedTicks = 0;
+//	started = false;
+//	paused = false;
+//}
+
+void Timer::start() {
+	started = true;
+	paused = false;
+
+	startTicks = SDL_GetTicks();
+	pausedTicks = 0;
+}
+
+void Timer::stop() {
+	started = false;
+	paused = false;
+
+	startTicks = 0;
+	pausedTicks = 0;
+}
+
+void Timer::pause() {
+	if (started && !paused) {
+		paused = true;
+
+		pausedTicks = SDL_GetTicks() - startTicks;
+		startTicks = 0;
+	}
+}
+
+void Timer::unpause() {
+	if (started && paused) {
+		paused = false;
+
+		startTicks = SDL_GetTicks();
+		pausedTicks = 0;
+	}
+}
+
+void Timer::reset() {
+	started = true;
+	paused = false;
+
+	startTicks = SDL_GetTicks();
+	pausedTicks = 0;
+}
+
+Uint32 Timer::getTicks() {
+	Uint32 time;
+	if (started) {
+		if (paused) {
+			time = pausedTicks;
+		} else {
+			time = SDL_GetTicks() - startTicks;
+		}
+	}
+	return time;
+}
+
+bool Timer::isStarted() {
+	return started;
+}
+
+bool Timer::isPaused() {
+	return paused;
+}
+
+Texture::Texture() {
+	texture = NULL;
+	width = 0;
+	height = 0;
+}
+
+Texture::~Texture() {
+	if (texture != NULL)
+		SDL_DestroyTexture(texture);
+}
+
+bool Texture::loadFromFile(char *path, SDL_Renderer *renderer) {
+
+	// Get rid of previous texture
+	if (texture != NULL) {
+		SDL_DestroyTexture(texture);
+		texture = NULL;
+		width = 0;
+		height = 0;
+	}
+
+	// Final texture
+	SDL_Texture *texture = NULL;
+
+	// Load image at specified path
+	SDL_Surface *surface = IMG_Load(path);
+	if (surface == NULL) {
+		printf("Unable to load image %s! SDL_Image Error: %s\n", path, IMG_GetError());
+	} else {
+		// Color keying - not sure if needed
+		// It makes all pixels with a certain color transparent
+		// SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 0, 0xFF, 0xFF));
+
+		texture = SDL_CreateTextureFromSurface(renderer, surface);
+		if (texture == NULL) {
+			printf("Unable to create texture from %s! SDL_Error: %s\n", path, SDL_GetError());
+		} else {
+			// Get image dimensions
+			width = surface->w;
+			height = surface->h;
+		}
+
+		// Get rid of old surface
+		SDL_FreeSurface(surface);
+	}
+
+	this->texture = texture;
+	return texture != NULL;
+}
+
+bool Texture::loadFromText(char *text, TTF_Font *font, SDL_Renderer *renderer,
+		SDL_Color textColor = { 255, 255, 255 }) {
+
+	// Get rid of previous texture
+	if (texture != NULL) {
+		SDL_DestroyTexture(texture);
+		texture = NULL;
+		width = 0;
+		height = 0;
+	}
+
+	// Render text surface
+	SDL_Surface *surface = TTF_RenderText_Solid(font, text, textColor);
+	if (surface == NULL) {
+		printf("Unable to render text surface! SDL_ttf Error: %s\n", TTF_GetError());
+	} else {
+		// Create texture from surface pixels
+		texture = SDL_CreateTextureFromSurface(renderer, surface);
+		if (texture == NULL) {
+			printf("Unable to create texture from rendered text! SDL_Error: %s\n", SDL_GetError());
+		} else {
+//			width = surface->w;
+//			height = surface->h;
+		}
+
+		// Get rid of old surface
+		SDL_FreeSurface(surface);
+	}
+	return texture != NULL;
+}
+
+void Texture::setBlendMode(SDL_BlendMode blending) {
+	SDL_SetTextureBlendMode(texture, blending);
+}
+
+void Texture::setAlpha(Uint8 alpha) {
+	SDL_SetTextureAlphaMod(texture, alpha);
+}
+
+int Texture::getWidth() {
+	return width;
+}
+
+int Texture::getHeight() {
+	return height;
+}
+
+void Texture::setWidth(int w) {
+	width = w;
+}
+
+void Texture::setHeight(int h) {
+	height = h;
+}
+
+void Texture::draw(int x, int y, SDL_Renderer *renderer, SDL_Rect *clip = NULL, double angle = 0.0,
+		SDL_Point *center = NULL, SDL_RendererFlip flip = SDL_FLIP_NONE) {
+
+	// I don't understand what's wrong here
+	// It says something is wrong but it works ¯\_(ツ)_/¯
+	SDL_Rect renderPos= {x, y, width, height};
+	//	SDL_Rect renderPos;
+	//	renderPos.x = x;
+	//	renderPos.y = y;
+	//	renderPos.w = width;
+	//	renderPos.h = height;
+
+	if (clip != NULL) {
+		renderPos.w = clip->w;
+		renderPos.h = clip->h;
+	}
+
+	SDL_RenderCopyEx(renderer, texture, clip, &renderPos, angle, center, flip);
+}
 
 /*
  Entity::Entity() {
@@ -12,6 +209,104 @@
  }
  */
 
+Button::Button(int x, int y, int w, int h) :
+		BUTTON_WIDTH(w), BUTTON_HEIGHT(h) {
+	position.x = x;
+	position.y = y;
+	isPressed = false;
+	texture.setWidth(w);
+	texture.setHeight(h);
+}
+
+Button::~Button() {
+	texture.~Texture();
+}
+
+void Button::setPosition(int x, int y) {
+	position.x = x;
+	position.y = y;
+}
+
+void Button::setTexture(char *path, SDL_Renderer *renderer) {
+	texture.loadFromFile(path, renderer);
+}
+
+void Button::setText(char *text, TTF_Font *font, SDL_Renderer *renderer) {
+	texture.loadFromText(text, font, renderer);
+}
+
+bool Button::pressed(SDL_Event *e) {
+	if (e->type == SDL_MOUSEBUTTONDOWN) {
+		int mouseX, mouseY;
+		SDL_GetMouseState(&mouseX, &mouseY);
+
+		// We assume the button was pressed
+		isPressed = true;
+		// And used the separating axis theorem to check
+		//Mouse is left of the button
+		if (mouseX < position.x) {
+			isPressed = false;
+		}
+		//Mouse is right of the button
+		else if (mouseX > position.x + BUTTON_WIDTH) {
+			isPressed = false;
+		}
+		//Mouse above the button
+		else if (mouseY < position.y) {
+			isPressed = false;
+		}
+		//Mouse below the button
+		else if (mouseY > position.y + BUTTON_HEIGHT) {
+			isPressed = false;
+		}
+	}
+
+	if (e->type == SDL_MOUSEBUTTONUP && isPressed) {
+		int mouseX, mouseY;
+		SDL_GetMouseState(&mouseX, &mouseY);
+
+		// We assume the mouse is within the button's bounds
+		bool inside = true;
+		// And used the separating axis theorem to check
+		//Mouse is left of the button
+		if (mouseX < position.x) {
+			inside = false;
+		}
+		//Mouse is right of the button
+		else if (mouseX > position.x + BUTTON_WIDTH) {
+			inside = false;
+		}
+		//Mouse above the button
+		else if (mouseY < position.y) {
+			inside = false;
+		}
+		//Mouse below the button
+		else if (mouseY > position.y + BUTTON_HEIGHT) {
+			inside = false;
+		}
+
+		if (inside) {
+			return true;
+		} else {
+			isPressed = false;
+		}
+	}
+	return false;
+}
+
+void Button::draw(SDL_Renderer *renderer) {
+	texture.draw(position.x, position.y, renderer);
+
+	SDL_Rect outline;
+	outline.x = position.x;
+	outline.y = position.y;
+	outline.w = texture.getWidth();
+	outline.h = texture.getHeight();
+
+	SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF);
+	SDL_RenderDrawRect(renderer, &outline);
+}
+
 Entity::Entity(int x, int y, int width, int height, int screenWidth, int screenHeight) :
 		SCREEN_WIDTH(screenWidth), SCREEN_HEIGHT(screenHeight) {
 	boundingBox = { x, y, width, height };
@@ -20,7 +315,7 @@ Entity::Entity(int x, int y, int width, int height, int screenWidth, int screenH
 	ySpeed = 0;
 	maxSpeed = 40;
 	onGround = false;
-	this->reboundForce = 50;
+//	this->reboundForce = 50;
 }
 
 /*Entity::~Entity() {
@@ -90,31 +385,31 @@ void Entity::setSpeedY(int y) {
 }
 
 void Entity::draw(SDL_Renderer *renderer) {
-	// Render Entity
+// Render Entity
 	SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF);
 	SDL_RenderFillRect(renderer, &boundingBox);
 
 	printf("Pos x:%d   y:%d\n", boundingBox.x, boundingBox.y);
 	printf("Speed x:%d   y:%d\n\n", xSpeed, ySpeed);
-	// These two lines are for when we are going to add textures
+// These two lines are for when we are going to add textures
 //	SDL_Texture *texture = NULL;
 //	SDL_RenderCopy( renderer, texture, NULL, &boundingBox );
 }
 
 void Entity::updatePos() {
-	// Update x
+// Update x
 	boundingBox.x += xSpeed;
 
-	// Update y if the entity is in the air or the speed on the y axis points upwards
-	// ySpeed < 0 		because y grows downwards (top of the screen <-> y = 0)
+// Update y if the entity is in the air or the speed on the y axis points upwards
+// ySpeed < 0 		because y grows downwards (top of the screen <-> y = 0)
 	if (!onGround || ySpeed < 0) {
 		boundingBox.y += ySpeed;
 	}
 }
 
 void Entity::updateSpeed() {
-	// Decrement the speed on X axis by 1 if the entity is on the ground
-	// Increment the speed on Y axis by 1 if current speed is under maxSpeed
+// Decrement the speed on X axis by 1 if the entity is on the ground
+// Increment the speed on Y axis by 1 if current speed is under maxSpeed
 	if (onGround) {
 		if (xSpeed > 0) {
 			xSpeed--;
@@ -135,7 +430,7 @@ void Entity::handleCollision(int collisionType, SDL_Rect *collisionTarget) {
 	} else if (collisionType == BOTTOM_COLLISION) {
 		onGround = true;
 		ySpeed = 0;
-		// TODO solve this line
+		// TODO maths broken??
 		//boundingBox.y = boundingBox.y - ((boundingBox.y + boundingBox.h) - collisionTarget->x);
 	} else if (collisionType == LEFT_COLLISION || collisionType == RIGHT_COLLISION) {
 		xSpeed -= xSpeed;
@@ -204,8 +499,7 @@ int Entity::checkCollision(const SDL_Rect *rect) {
 			boundingBox.x + boundingBox.w };
 	struct dimensions target = { rect->y, rect->y + rect->h, rect->x, rect->x + rect->w };
 
-	// TODO wall collision still not working
-	// Check for collision with the walls
+// Check for collision with the walls
 	if (entity.bottom > SCREEN_HEIGHT) {
 		return BOTTOM_COLLISION;
 	} else if (entity.left < -1) {
@@ -214,7 +508,7 @@ int Entity::checkCollision(const SDL_Rect *rect) {
 		return RIGHT_WALL_COLLISION;
 	}
 
-	// Separating Axis Theorem
+// Separating Axis Theorem
 	if ((entity.bottom <= target.top) || (entity.top >= target.bottom)
 			|| (entity.right <= target.left) || (entity.left >= target.right)) {
 
@@ -226,7 +520,7 @@ int Entity::checkCollision(const SDL_Rect *rect) {
 		return NO_COLLISION;
 	}
 
-	// Check collision on all sides
+// Check collision on all sides
 	if (entity.top >= target.bottom) {
 		top = true;
 	}
@@ -272,73 +566,4 @@ int Entity::checkCollision(const SDL_Rect *rect) {
 	}
 
 	return NO_COLLISION;
-}
-
-LTimer::LTimer() {
-	startTicks = 0;
-	pausedTicks = 0;
-	started = false;
-	paused = false;
-}
-
-void LTimer::start() {
-	started = true;
-	paused = false;
-
-	startTicks = SDL_GetTicks();
-	pausedTicks = 0;
-}
-
-void LTimer::stop() {
-	started = false;
-	paused = false;
-
-	startTicks = 0;
-	pausedTicks = 0;
-}
-
-void LTimer::pause() {
-	if (started && !paused) {
-		paused = true;
-
-		pausedTicks = SDL_GetTicks() - startTicks;
-		startTicks = 0;
-	}
-}
-
-void LTimer::unpause() {
-	if (started && paused) {
-		paused = false;
-
-		startTicks = SDL_GetTicks();
-		pausedTicks = 0;
-	}
-}
-
-void LTimer::reset() {
-	started = true;
-	paused = false;
-
-	startTicks = SDL_GetTicks();
-	pausedTicks = 0;
-}
-
-Uint32 LTimer::getTicks() {
-	Uint32 time;
-	if (started) {
-		if (paused) {
-			time = pausedTicks;
-		} else {
-			time = SDL_GetTicks() - startTicks;
-		}
-	}
-	return time;
-}
-
-bool LTimer::isStarted() {
-	return started;
-}
-
-bool LTimer::isPaused() {
-	return paused;
 }

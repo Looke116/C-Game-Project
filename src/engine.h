@@ -1,4 +1,5 @@
 #include <SDL.h>
+#include <SDL_ttf.h>
 #include <string>
 
 /*
@@ -18,35 +19,92 @@
  * rest for now.
  */
 
-class LTimer {
+class Timer {
 public:
-	//Initializes variables
-	LTimer();
+	// Not really needed also weird behavior on my side ?idk?
+	//	Timer();
 
-	//The various clock actions
 	void start();
 	void stop();
 	void pause();
 	void unpause();
 	void reset();
 
-	//Gets the timer's time
+	// Gets the timer's time
 	Uint32 getTicks();
 
-	//Checks the status of the timer
+	// Checks the status of the timer
 	bool isStarted();
 	bool isPaused();
 
 private:
-	//The clock time when the timer started
+	// The clock time when the timer started
 	Uint32 startTicks;
 
-	//The ticks stored when the timer was paused
+	// The ticks stored when the timer was paused
 	Uint32 pausedTicks;
 
-	//The timer status
+	// The timer status
 	bool started;
 	bool paused;
+};
+
+class Texture {
+public:
+	// Initializes variables
+	Texture();
+
+	// Deallocates memory
+	~Texture();
+
+	// Loads image from specified path
+	bool loadFromFile(char *path, SDL_Renderer *renderer);
+
+	// Creates image from font string
+	bool loadFromText(char *text, TTF_Font *font, SDL_Renderer *renderer,
+			SDL_Color textColor);
+
+	// Probably not needed but here for future reference
+	// void setColorModulation(Uint8 red, Uint8 green, Uint8 blue);
+	void setBlendMode(SDL_BlendMode blending);
+	void setAlpha(Uint8 alpha);
+	int getWidth();
+	int getHeight();
+	void setWidth(int w);
+	void setHeight(int h);
+
+	void draw(int x, int y, SDL_Renderer *renderer, SDL_Rect *clip, double angle, SDL_Point *center,
+			SDL_RendererFlip flip);
+
+private:
+	// The actual hardware texture
+	SDL_Texture *texture;
+
+	// Image dimensions
+	int width;
+	int height;
+};
+
+class Button {
+public:
+	Button(int x, int y, int w, int h);
+	~Button();
+
+	void setPosition(int x, int y);
+	void setTexture(char *path, SDL_Renderer *renderer);
+	void setText(char *text, TTF_Font *font, SDL_Renderer *renderer);
+
+	bool pressed(SDL_Event *e);
+
+	void draw(SDL_Renderer *renderer);
+
+private:
+	const unsigned short int BUTTON_WIDTH;
+	const unsigned short int BUTTON_HEIGHT;
+
+	bool isPressed;
+	SDL_Point position;
+	Texture texture;
 };
 
 class Entity {
@@ -60,7 +118,7 @@ public:
 	// Destructor
 //	~Entity();
 
-	enum collisionDirection {  // enumerator
+	enum collisionDirection {
 		NO_COLLISION,
 		TOP_COLLISION,
 		BOTTOM_COLLISION,
@@ -76,7 +134,7 @@ public:
 		OUT_OF_BOUNDS,
 	};
 
-	LTimer timer;
+	Timer timer;
 
 	// Getters and Setters
 	int getGravity();
@@ -87,6 +145,8 @@ public:
 	SDL_Rect getBoundingBox();
 
 	void draw(SDL_Renderer *renderer);
+
+	// Movement and Collision Functions
 	void updatePos();
 	void updateSpeed();
 	void handleCollision(int collisionTypem, SDL_Rect *collisionTarget);
@@ -113,8 +173,7 @@ private:
 	 * 100 	- means speed doesn't change when ricocheting
 	 * 0 		- means speed reduced to 0 (doesn't bounce at all)
 	 */
-	short int reboundForce;
-
+	//	short int reboundForce; 	// Not used in current version
 	SDL_Rect boundingBox;
 };
 
@@ -151,26 +210,6 @@ private:
 		TELEPORT,					// Teleports the player to a random place on the map
 		OVER_POWERED_BS	// idk something overpower with a low spawn chance cuz why not ;)
 	};
-};
-
-class Texture {
-public:
-	Texture();
-	~Texture();
-
-	bool loadFromFile(std::string path);
-
-	int getWidth();
-	int getHeight();
-
-	void render();
-	void free();
-
-private:
-	SDL_Texture *texture;
-
-	int x, y;
-	int width, height;
 };
 
 /* TODO Mesh class
