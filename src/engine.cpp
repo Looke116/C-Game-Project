@@ -1,10 +1,12 @@
 #include <SDL_image.h>			// Extension Library for using images/textures
 #include <SDL_ttf.h>
-#include <cmath>
+//#include <cmath>
 #include <cstring>
 #include "engine.h"
 
-//Timer::Timer() {
+#include "common.h"
+
+//Timer::Timer() {*/
 //	startTicks = 0;
 //	pausedTicks = 0;
 //	started = false;
@@ -84,7 +86,7 @@ Texture::~Texture() {
 		SDL_DestroyTexture(texture);
 }
 
-bool Texture::loadFromFile(char *path, SDL_Renderer *renderer) {
+bool Texture::loadFromFile(char *path) {
 
 	// Get rid of previous texture
 	if (texture != NULL) {
@@ -123,8 +125,7 @@ bool Texture::loadFromFile(char *path, SDL_Renderer *renderer) {
 	return texture != NULL;
 }
 
-bool Texture::loadFromText(char *text, TTF_Font *font, SDL_Renderer *renderer,
-		SDL_Color textColor = { 255, 255, 255 }) {
+bool Texture::loadFromText(const char *text, SDL_Color textColor = { 255, 255, 255 }) {
 
 	// Get rid of previous texture
 	if (texture != NULL) {
@@ -182,13 +183,8 @@ void Texture::draw(int x, int y, SDL_Renderer *renderer, SDL_Rect *clip = NULL, 
 		SDL_Point *center = NULL, SDL_RendererFlip flip = SDL_FLIP_NONE) {
 
 	// I don't understand what's wrong here
-	// It says something is wrong but it works ¯\_(ツ)_/¯
-	SDL_Rect renderPos= {x, y, width, height};
-	//	SDL_Rect renderPos;
-	//	renderPos.x = x;
-	//	renderPos.y = y;
-	//	renderPos.w = width;
-	//	renderPos.h = height;
+	// The IDE says something is wrong but it works ¯\_(ツ)_/¯
+	SDL_Rect renderPos = { x, y, width, height }; // @suppress("Invalid arguments")
 
 	if (clip != NULL) {
 		renderPos.w = clip->w;
@@ -227,12 +223,12 @@ void Button::setPosition(int x, int y) {
 	position.y = y;
 }
 
-void Button::setTexture(char *path, SDL_Renderer *renderer) {
-	texture.loadFromFile(path, renderer);
+void Button::setTexture(char *path) {
+	texture.loadFromFile(path);
 }
 
-void Button::setText(char *text, TTF_Font *font, SDL_Renderer *renderer) {
-	texture.loadFromText(text, font, renderer);
+void Button::setText(const char *text) {
+	texture.loadFromText(text);
 }
 
 bool Button::pressed(SDL_Event *e) {
@@ -307,14 +303,13 @@ void Button::draw(SDL_Renderer *renderer) {
 	SDL_RenderDrawRect(renderer, &outline);
 }
 
-Entity::Entity(int x, int y, int width, int height, int screenWidth, int screenHeight) :
-		SCREEN_WIDTH(screenWidth), SCREEN_HEIGHT(screenHeight) {
-	boundingBox = { x, y, width, height };
+Entity::Entity() {
 	gravity = 10;
 	xSpeed = 0;
 	ySpeed = 0;
 	maxSpeed = 40;
 	onGround = false;
+	texture = NULL;
 //	this->reboundForce = 50;
 }
 
@@ -384,24 +379,31 @@ void Entity::setSpeedY(int y) {
 	ySpeed = y;
 }
 
+void Entity::setBoundingBox(int x, int y, int w, int h) {
+	boundingBox = { x, y, w, h };
+}
+
 void Entity::draw(SDL_Renderer *renderer) {
-// Render Entity
+	// Render Entity
+	if(texture == NULL){
 	SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF);
 	SDL_RenderFillRect(renderer, &boundingBox);
-
+	}else{
+		texture->draw(boundingBox.x, boundingBox.y,renderer);
+	}
 	printf("Pos x:%d   y:%d\n", boundingBox.x, boundingBox.y);
 	printf("Speed x:%d   y:%d\n\n", xSpeed, ySpeed);
-// These two lines are for when we are going to add textures
-//	SDL_Texture *texture = NULL;
-//	SDL_RenderCopy( renderer, texture, NULL, &boundingBox );
+	// These two lines are for when we are going to add textures
+	//	SDL_Texture *texture = NULL;
+	//	SDL_RenderCopy( renderer, texture, NULL, &boundingBox );
 }
 
 void Entity::updatePos() {
-// Update x
+	// Update x
 	boundingBox.x += xSpeed;
 
-// Update y if the entity is in the air or the speed on the y axis points upwards
-// ySpeed < 0 		because y grows downwards (top of the screen <-> y = 0)
+	// Update y if the entity is in the air or the speed on the y axis points upwards
+	// ySpeed < 0 		because y grows downwards (top of the screen <-> y = 0)
 	if (!onGround || ySpeed < 0) {
 		boundingBox.y += ySpeed;
 	}
@@ -454,7 +456,6 @@ void Entity::move(SDL_Rect *collisionTarget) {
 			int collisionDirection = checkCollision(collisionTarget);
 			if (collisionDirection != NO_COLLISION)
 				handleCollision(collisionDirection, collisionTarget);
-
 			updateSpeed();
 			timer.reset();
 		}
@@ -566,4 +567,47 @@ int Entity::checkCollision(const SDL_Rect *rect) {
 	}
 
 	return NO_COLLISION;
+}
+
+Tank::Tank() {
+	health = 100;
+	armor = 50;
+	isEnemy = false;
+	isAI = false;
+}
+
+void Tank::setAI(bool b) {
+	isAI = b;
+}
+
+void Tank::callAI() {
+//	shoot();
+}
+
+void Tank::shoot() {
+
+}
+
+void Tank::handleInput(const Uint8 *keyStates, bool player1 = true) {
+	if (player1) {
+		if (keyStates[SDL_SCANCODE_D]) {
+			setSpeed(10, 0);
+		} else if (keyStates[SDL_SCANCODE_A]) {
+			setSpeed(-10, 0);
+		} else if (keyStates[SDL_SCANCODE_W] && onGround) {
+			setSpeed(0, -10);
+		}else if(keyStates[SDL_SCANCODE_SPACE]){
+			shoot();
+		}
+	}else{
+		if (keyStates[SDL_SCANCODE_RIGHT]) {
+			setSpeed(10, 0);
+		} else if (keyStates[SDL_SCANCODE_LEFT]) {
+			setSpeed(-10, 0);
+		} else if (keyStates[SDL_SCANCODE_UP] && onGround) {
+			setSpeed(0, -10);
+		}else if(keyStates[SDL_SCANCODE_RETURN]){
+			shoot();
+		}
+	}
 }

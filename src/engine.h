@@ -2,22 +2,23 @@
 #include <SDL_ttf.h>
 #include <string>
 
+#include "common.h"
 /*
- * To Semei:
- *
- * I'm using a lot of "unsigned short int" around here because
- * most of the variables don't need to go below zero (unsigned)
- * or above 65,535 (short int). This might actually be overkill and
- * not necessary so if you don't like it or find it confusing we can
- * change back to normal "int"
- *
- * More info here if you're interested
- * https://www.tutorialspoint.com/cplusplus/cpp_data_types.htm
- *
- * P.S. I'm gonna do the entity class as an example and will leave
- * the Tank, Projectile and PowerUp classes to you, ignore the
- * rest for now.
- */
+
+// Global Variables
+SDL_Window *window = NULL;
+SDL_Surface *surface = NULL;
+SDL_Renderer *renderer = NULL;
+
+TTF_Font *font;
+
+const unsigned short int SCREEN_WIDTH = 1280;
+const unsigned short int SCREEN_HEIGHT = 720;
+
+const unsigned short int BUTTON_WIDTH = 200;
+const unsigned short int BUTTON_HEIGHT = 100;
+*/
+
 
 class Timer {
 public:
@@ -58,11 +59,10 @@ public:
 	~Texture();
 
 	// Loads image from specified path
-	bool loadFromFile(char *path, SDL_Renderer *renderer);
+	bool loadFromFile(char *path);
 
 	// Creates image from font string
-	bool loadFromText(char *text, TTF_Font *font, SDL_Renderer *renderer,
-			SDL_Color textColor);
+	bool loadFromText(const char *text, SDL_Color textColor);
 
 	// Probably not needed but here for future reference
 	// void setColorModulation(Uint8 red, Uint8 green, Uint8 blue);
@@ -91,8 +91,8 @@ public:
 	~Button();
 
 	void setPosition(int x, int y);
-	void setTexture(char *path, SDL_Renderer *renderer);
-	void setText(char *text, TTF_Font *font, SDL_Renderer *renderer);
+	void setTexture(char *path);
+	void setText(const char *text);
 
 	bool pressed(SDL_Event *e);
 
@@ -109,14 +109,7 @@ private:
 
 class Entity {
 public:
-	// Empty constructor
 	Entity();
-
-	// Custom constructor
-	Entity(int x, int y, int width, int height, int screenWidth, int screenHeight);
-
-	// Destructor
-//	~Entity();
 
 	enum collisionDirection {
 		NO_COLLISION,
@@ -135,6 +128,7 @@ public:
 	};
 
 	Timer timer;
+	Texture *texture;
 
 	// Getters and Setters
 	int getGravity();
@@ -142,22 +136,16 @@ public:
 	void setSpeed(int x, int y);
 	void setSpeedX(int x);
 	void setSpeedY(int y);
+	void setBoundingBox(int x, int y, int w, int h);
 	SDL_Rect getBoundingBox();
 
 	void draw(SDL_Renderer *renderer);
 
-	// Movement and Collision Functions
-	void updatePos();
-	void updateSpeed();
-	void handleCollision(int collisionTypem, SDL_Rect *collisionTarget);
+	// Movement functions
 	void move(SDL_Rect *collisionTarget);
 	void move(SDL_Rect *collisionTargets[]);
 
 protected:
-	int checkCollision(const SDL_Rect *rect);
-
-// These might need to be change to protected instead of private
-private:
 	short int gravity;
 	short int xSpeed;
 	short int ySpeed;
@@ -165,32 +153,44 @@ private:
 
 	bool onGround;
 
-	const unsigned short int SCREEN_WIDTH;
-	const unsigned short int SCREEN_HEIGHT;
+	SDL_Rect boundingBox;
 
+	int checkCollision(const SDL_Rect *rect);
+
+// These might need to be change to protected instead of private
+private:
 	/* Values from 100 to 0
 	 * Works like a percentage of velocity transfer/loss
 	 * 100 	- means speed doesn't change when ricocheting
 	 * 0 		- means speed reduced to 0 (doesn't bounce at all)
 	 */
 	//	short int reboundForce; 	// Not used in current version
-	SDL_Rect boundingBox;
+	// Movement and collision functions
+	void updatePos();
+	void updateSpeed();
+	void handleCollision(int collisionTypem, SDL_Rect *collisionTarget);
 };
 
-class Tank: Entity {
+class Tank: public Entity {
 public:
 	Tank();
-	~Tank();
+
+	void setAI(bool);
+	void callAI();
+	void shoot();
+	void handleInput(const Uint8 *keyStates, bool secondPlayer);
 
 private:
-//	unsigned short int health;
-//	unsigned short int shield;
+	bool isEnemy;
+	bool isAI;
+
+	unsigned short int health;
+	unsigned short int armor;
 };
 
 class Projectile: Entity {
 public:
 	Projectile();
-	~Projectile();
 
 private:
 	short int owner;				// Stores the id of the player that shot the projectile
@@ -200,7 +200,6 @@ private:
 class PowerUp: Entity {
 public:
 	PowerUp();
-	~PowerUp();
 
 private:
 	// Open to ideas
@@ -208,7 +207,7 @@ private:
 		HEALTH, // Gives Health and Shield based on a fixed amount or random if skill tree is added
 		WEAPONS,					// Gives between 1-3 weapons
 		TELEPORT,					// Teleports the player to a random place on the map
-		OVER_POWERED_BS	// idk something overpower with a low spawn chance cuz why not ;)
+		OVER_POWERED_BS	// idk something overpowered with a low spawn chance cuz why not ;)
 	};
 };
 
