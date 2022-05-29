@@ -5,6 +5,7 @@
 #include "engine.h"				// Classes and SLD wrapper
 #include <iostream>
 #include "common.h"
+using namespace std;
 //#define debug
 
 // Initializing variables from common.h
@@ -39,9 +40,8 @@ enum gameState {
 };
 
 bool init();
-
+void handleEvent(SDL_Event*, int);
 void drawLevel(int);
-
 void close();
 
 int main(int argc, char *args[]) {
@@ -60,6 +60,8 @@ int main(int argc, char *args[]) {
 	Button splitScreenButton = { SCREEN_WIDTH / 2 - BUTTON_WIDTH / 2, 250, BUTTON_WIDTH,
 			BUTTON_HEIGHT };
 	Button quitButton = { SCREEN_WIDTH / 2 - BUTTON_WIDTH / 2, 500, BUTTON_WIDTH, BUTTON_HEIGHT };
+	Button backButton = { SCREEN_WIDTH - BUTTON_WIDTH, SCREEN_HEIGHT - BUTTON_HEIGHT, BUTTON_WIDTH,
+			BUTTON_HEIGHT };
 	Button debugButton = { 0, 0, BUTTON_WIDTH, BUTTON_HEIGHT };
 
 	Button lvl1 = { SCREEN_WIDTH / 2 / 2 - BUTTON_WIDTH / 2, SCREEN_HEIGHT / 2 / 2
@@ -76,8 +78,9 @@ int main(int argc, char *args[]) {
 			- BUTTON_HEIGHT / 2, BUTTON_WIDTH, BUTTON_HEIGHT };
 
 	singlePlayerButton.setText("Singleplayer");
-	splitScreenButton.setText("Split-Screen");
+	splitScreenButton.setText("Local Coop");
 	quitButton.setText("Quit");
+	backButton.setText("Back");
 	debugButton.setText("Debug");
 
 	lvl1.setText("Level 1");
@@ -96,6 +99,12 @@ int main(int argc, char *args[]) {
 
 	player1.setBoundingBox(100, 100, 50, 50);
 	player2.setBoundingBox(600, 100, 50, 50);
+	//	player2.setAI(true); // TODO
+
+	vector<SDL_Rect> collisionTargets;
+	collisionTargets.push_back(floor);
+	collisionTargets.push_back(player1.getBoundingBox());
+	collisionTargets.push_back(player2.getBoundingBox());// TODO this might create a bug later
 
 #if defined(debug)
 	SDL_Delay(5);
@@ -136,6 +145,8 @@ int main(int argc, char *args[]) {
 					currentState = SINGLEPLAYER_LEVEL5;
 				} else if (boss.pressed(&event)) {
 					currentState = SINGLEPLAYER_LEVEL_BOSS;
+				} else if (backButton.pressed(&event)) {
+					currentState = MAIN_MENU;
 				}
 			} else if (currentState == SPLITSCREEN_LEVEL_SELECT) {
 				if (lvl1.pressed(&event)) {
@@ -150,10 +161,20 @@ int main(int argc, char *args[]) {
 					currentState = SPLITSCREEN_LEVEL5;
 				} else if (boss.pressed(&event)) {
 					currentState = SPLITSCREEN_LEVEL_BOSS;
+				} else if (backButton.pressed(&event)) {
+					currentState = MAIN_MENU;
 				}
 			} else if (currentState == TEST) {
 				player1.handleInput(currentKeyStates, true);
 				player2.handleInput(currentKeyStates, false);
+				if (backButton.pressed(&event)) {
+					currentState = MAIN_MENU;
+				}
+			} else {
+				handleEvent(&event, currentState);
+				if (backButton.pressed(&event)) {
+					currentState = MAIN_MENU;
+				}
 			}
 		}
 #endif
@@ -172,6 +193,7 @@ int main(int argc, char *args[]) {
 			lvl4.draw(renderer);
 			lvl5.draw(renderer);
 			boss.draw(renderer);
+			backButton.draw(renderer);
 		} else if (currentState == SPLITSCREEN_LEVEL_SELECT) {
 			lvl1.draw(renderer);
 			lvl2.draw(renderer);
@@ -179,6 +201,7 @@ int main(int argc, char *args[]) {
 			lvl4.draw(renderer);
 			lvl5.draw(renderer);
 			boss.draw(renderer);
+			backButton.draw(renderer);
 		} else if (currentState == TEST) {
 
 			// Draw the floor
@@ -190,8 +213,11 @@ int main(int argc, char *args[]) {
 
 			player2.move(&floor);
 			player2.draw(renderer);
+
+			backButton.draw(renderer);
 		} else {
 			drawLevel(currentState);
+			backButton.draw(renderer);
 		}
 
 		// Update screen
@@ -253,6 +279,10 @@ bool init() {
 	}
 
 	return true;
+}
+
+void handleEvent(SDL_Event *event, int currentState) {
+
 }
 
 void drawLevel(int level) {

@@ -1,29 +1,13 @@
 #include <SDL.h>
 #include <SDL_ttf.h>
 #include <string>
-
+#include <vector>
 #include "common.h"
-/*
-
-// Global Variables
-SDL_Window *window = NULL;
-SDL_Surface *surface = NULL;
-SDL_Renderer *renderer = NULL;
-
-TTF_Font *font;
-
-const unsigned short int SCREEN_WIDTH = 1280;
-const unsigned short int SCREEN_HEIGHT = 720;
-
-const unsigned short int BUTTON_WIDTH = 200;
-const unsigned short int BUTTON_HEIGHT = 100;
-*/
-
+using namespace std;
 
 class Timer {
 public:
-	// Not really needed also weird behavior on my side ?idk?
-	//	Timer();
+	Timer();
 
 	void start();
 	void stop();
@@ -72,6 +56,7 @@ public:
 	int getHeight();
 	void setWidth(int w);
 	void setHeight(int h);
+	void setRelativePos(int x, int y);
 
 	void draw(int x, int y, SDL_Renderer *renderer, SDL_Rect *clip, double angle, SDL_Point *center,
 			SDL_RendererFlip flip);
@@ -83,6 +68,9 @@ private:
 	// Image dimensions
 	int width;
 	int height;
+
+	int relativeX;
+	int relativeY;
 };
 
 class Button {
@@ -143,7 +131,11 @@ public:
 
 	// Movement functions
 	void move(SDL_Rect *collisionTarget);
-	void move(SDL_Rect *collisionTargets[]);
+	void move(vector<SDL_Rect> collisionTargets);
+
+	enum direction {
+		UP, DOWN, LEFT, RIGHT,
+	};
 
 protected:
 	short int gravity;
@@ -168,7 +160,24 @@ private:
 	// Movement and collision functions
 	void updatePos();
 	void updateSpeed();
-	void handleCollision(int collisionTypem, SDL_Rect *collisionTarget);
+	void handleCollision(int collisionType, SDL_Rect *collisionTarget);
+};
+
+class Projectile: public Entity {
+public:
+	Projectile(int x, int y, int direction);
+
+	bool move(SDL_Rect *collisionTarget);
+	bool move(vector<SDL_Rect> collisionTargets);
+
+private:
+	unsigned short int direction;
+
+	void updatePos();
+	void updateSpeed();
+	void handleCollision(int collisionType, SDL_Rect *collisionTarget);
+
+//	static Texture texture;
 };
 
 class Tank: public Entity {
@@ -178,23 +187,27 @@ public:
 	void setAI(bool);
 	void callAI();
 	void shoot();
-	void handleInput(const Uint8 *keyStates, bool secondPlayer);
+	void handleInput(const Uint8 *keyStates, bool secondPlayer = true);
+	void draw(SDL_Renderer *renderers);
+	void move(SDL_Rect *collisionTarget);
+	void move(vector<SDL_Rect> collisionTargets);
+
+	void setDamage();
+
+	enum color {
+		GREEN, ORANGE, RED,
+	};
 
 private:
 	bool isEnemy;
+	bool isDead;
 	bool isAI;
 
 	unsigned short int health;
-	unsigned short int armor;
-};
+	unsigned short int direction;
 
-class Projectile: Entity {
-public:
-	Projectile();
-
-private:
-	short int owner;				// Stores the id of the player that shot the projectile
-//	char owner1;					// Maybe use char (1 byte) instead of short int (2 bytes)
+//	Projectile *projectiles;
+	vector<Projectile> projectiles;
 };
 
 class PowerUp: Entity {

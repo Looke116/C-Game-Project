@@ -1,17 +1,16 @@
 #include <SDL_image.h>			// Extension Library for using images/textures
 #include <SDL_ttf.h>
 //#include <cmath>
-#include <cstring>
+#include <string>
 #include "engine.h"
-
 #include "common.h"
-
-//Timer::Timer() {*/
-//	startTicks = 0;
-//	pausedTicks = 0;
-//	started = false;
-//	paused = false;
-//}
+using namespace std;
+Timer::Timer() {
+	startTicks = 0;
+	pausedTicks = 0;
+	started = false;
+	paused = false;
+}
 
 void Timer::start() {
 	started = true;
@@ -79,6 +78,8 @@ Texture::Texture() {
 	texture = NULL;
 	width = 0;
 	height = 0;
+	relativeX = 0;
+	relativeY = 0;
 }
 
 Texture::~Texture() {
@@ -179,12 +180,25 @@ void Texture::setHeight(int h) {
 	height = h;
 }
 
+void Texture::setRelativePos(int x, int y) {
+	relativeX = x;
+	relativeY = y;
+}
+
 void Texture::draw(int x, int y, SDL_Renderer *renderer, SDL_Rect *clip = NULL, double angle = 0.0,
 		SDL_Point *center = NULL, SDL_RendererFlip flip = SDL_FLIP_NONE) {
 
 	// I don't understand what's wrong here
 	// The IDE says something is wrong but it works ¯\_(ツ)_/¯
 	SDL_Rect renderPos = { x, y, width, height }; // @suppress("Invalid arguments")
+
+	if (relativeX != 0) {
+		renderPos.x += relativeX;
+	}
+
+	if (relativeY != 0) {
+		renderPos.y += relativeY;
+	}
 
 	if (clip != NULL) {
 		renderPos.w = clip->w;
@@ -292,15 +306,6 @@ bool Button::pressed(SDL_Event *e) {
 
 void Button::draw(SDL_Renderer *renderer) {
 	texture.draw(position.x, position.y, renderer);
-
-	SDL_Rect outline;
-	outline.x = position.x;
-	outline.y = position.y;
-	outline.w = texture.getWidth();
-	outline.h = texture.getHeight();
-
-	SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF);
-	SDL_RenderDrawRect(renderer, &outline);
 }
 
 Entity::Entity() {
@@ -383,19 +388,18 @@ void Entity::setBoundingBox(int x, int y, int w, int h) {
 	boundingBox = { x, y, w, h };
 }
 
+SDL_Rect Entity::getBoundingBox() {
+	return boundingBox;
+}
+
 void Entity::draw(SDL_Renderer *renderer) {
 	// Render Entity
-	if(texture == NULL){
-	SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF);
-	SDL_RenderFillRect(renderer, &boundingBox);
-	}else{
-		texture->draw(boundingBox.x, boundingBox.y,renderer);
+	if (texture == NULL) {
+		SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF);
+		SDL_RenderFillRect(renderer, &boundingBox);
+	} else {
+		texture->draw(boundingBox.x, boundingBox.y, renderer);
 	}
-	printf("Pos x:%d   y:%d\n", boundingBox.x, boundingBox.y);
-	printf("Speed x:%d   y:%d\n\n", xSpeed, ySpeed);
-	// These two lines are for when we are going to add textures
-	//	SDL_Texture *texture = NULL;
-	//	SDL_RenderCopy( renderer, texture, NULL, &boundingBox );
 }
 
 void Entity::updatePos() {
@@ -464,15 +468,21 @@ void Entity::move(SDL_Rect *collisionTarget) {
 	}
 }
 
-void Entity::move(SDL_Rect *collisionTargets[]) {
+void Entity::move(vector<SDL_Rect> collisionTargets) {
 	if (timer.isStarted()) {
 		if (timer.getTicks() > 10) {
 			// Update Position of entity
 			updatePos();
-			for (int i = 0; i < sizeof(collisionTargets); i++) {
-				int collisionDirection = checkCollision(collisionTargets[i]);
-				if (collisionDirection != NO_COLLISION)
-					handleCollision(collisionDirection, collisionTargets[i]);
+			for (auto it = collisionTargets.begin(); it != collisionTargets.end(); it++) {
+				SDL_Rect rect = *it;
+				// This if statement is the same as if(boundingBox != rect)
+				if ((boundingBox.x != rect.x) || (boundingBox.y != rect.y)
+						|| (boundingBox.w != rect.w) || (boundingBox.h != rect.h)) {
+					int collisionDirection = checkCollision(&rect);
+					if (collisionDirection != NO_COLLISION) {
+						handleCollision(collisionDirection, &rect);
+					}
+				}
 			}
 			updateSpeed();
 			timer.reset();
@@ -500,7 +510,7 @@ int Entity::checkCollision(const SDL_Rect *rect) {
 			boundingBox.x + boundingBox.w };
 	struct dimensions target = { rect->y, rect->y + rect->h, rect->x, rect->x + rect->w };
 
-// Check for collision with the walls
+	// Check for collision with the walls
 	if (entity.bottom > SCREEN_HEIGHT) {
 		return BOTTOM_COLLISION;
 	} else if (entity.left < -1) {
@@ -509,7 +519,7 @@ int Entity::checkCollision(const SDL_Rect *rect) {
 		return RIGHT_WALL_COLLISION;
 	}
 
-// Separating Axis Theorem
+	// Separating Axis Theorem
 	if ((entity.bottom <= target.top) || (entity.top >= target.bottom)
 			|| (entity.right <= target.left) || (entity.left >= target.right)) {
 
@@ -521,7 +531,7 @@ int Entity::checkCollision(const SDL_Rect *rect) {
 		return NO_COLLISION;
 	}
 
-// Check collision on all sides
+	// Check collision on all sides
 	if (entity.top >= target.bottom) {
 		top = true;
 	}
@@ -569,15 +579,84 @@ int Entity::checkCollision(const SDL_Rect *rect) {
 	return NO_COLLISION;
 }
 
-Tank::Tank() {
-	health = 100;
-	armor = 50;
-	isEnemy = false;
-	isAI = false;
+Projectile::Projectile(int x, int y, int direction) {
+	gravity = 0;
+	setBoundingBox(x, y, 10, 10);
+	this->direction = direction;
+
+	if (direction == LEFT) {
+		xSpeed = -5;
+	} else if (direction == RIGHT) {
+		xSpeed = 5;
+	} else if (direction == UP) {
+		ySpeed = -5;
+	} else if (direction == DOWN) {
+		xSpeed = 5;
+	}
 }
 
-void Tank::setAI(bool b) {
-	isAI = b;
+bool Projectile::move(SDL_Rect *collisionTarget) {
+	if (timer.isStarted()) {
+		if (timer.getTicks() > 10) {
+			// Update Position of entity
+			updatePos();
+			int collisionDirection = checkCollision(collisionTarget);
+			if (collisionDirection != NO_COLLISION)
+//				handleCollision(collisionDirection, collisionTarget);
+				return true;
+			timer.reset();
+		}
+	} else {
+		timer.start();
+	}
+	return false;
+}
+
+bool Projectile::move(vector<SDL_Rect> collisionTargets) {
+	if (timer.isStarted()) {
+		if (timer.getTicks() > 10) {
+			// Update Position of entity
+			updatePos();
+//			for (auto it = collisionTargets.begin(); it != collisionTargets.end(); it++) {
+			for (int i = 0; i < collisionTargets.size(); i++) {
+				SDL_Rect rect = collisionTargets[i];
+				// This if statement is the same as if(boundingBox != rect)
+				if ((boundingBox.x != rect.x) || (boundingBox.y != rect.y)
+						|| (boundingBox.w != rect.w) || (boundingBox.h != rect.h)) {
+					int collisionDirection = checkCollision(&rect);
+					if (collisionDirection != NO_COLLISION) {
+//						handleCollision(collisionDirection, &rect);
+						return true;
+					}
+				}
+			}
+			timer.reset();
+		}
+	} else {
+		timer.start();
+	}
+	return false;
+}
+
+void Projectile::updatePos() {
+	// Update x and y
+	boundingBox.x += xSpeed;
+	boundingBox.y += ySpeed;
+}
+
+void Projectile::handleCollision(int collisionType, SDL_Rect *collisionTarget) {
+}
+
+Tank::Tank() {
+	isEnemy = false;
+	isDead = false;
+	isAI = false;
+	health = GREEN;
+	direction = DOWN;
+}
+
+void Tank::setAI(bool isAI) {
+	this->isAI = isAI;
 }
 
 void Tank::callAI() {
@@ -585,29 +664,100 @@ void Tank::callAI() {
 }
 
 void Tank::shoot() {
+	Projectile p { boundingBox.x + boundingBox.w / 2, boundingBox.y + boundingBox.h / 2, direction };
 
+	projectiles.push_back(p);
+
+	// TODO check collision
 }
 
-void Tank::handleInput(const Uint8 *keyStates, bool player1 = true) {
+void Tank::handleInput(const Uint8 *keyStates, bool player1) {
 	if (player1) {
 		if (keyStates[SDL_SCANCODE_D]) {
 			setSpeed(10, 0);
+			direction = RIGHT;
 		} else if (keyStates[SDL_SCANCODE_A]) {
 			setSpeed(-10, 0);
+			direction = LEFT;
 		} else if (keyStates[SDL_SCANCODE_W] && onGround) {
 			setSpeed(0, -10);
-		}else if(keyStates[SDL_SCANCODE_SPACE]){
+			direction = UP;
+		} else if (keyStates[SDL_SCANCODE_S]) {
+			direction = DOWN;
+		} else if (keyStates[SDL_SCANCODE_SPACE]) {
 			shoot();
 		}
-	}else{
+	} else {
 		if (keyStates[SDL_SCANCODE_RIGHT]) {
 			setSpeed(10, 0);
+			direction = RIGHT;
 		} else if (keyStates[SDL_SCANCODE_LEFT]) {
 			setSpeed(-10, 0);
+			direction = LEFT;
 		} else if (keyStates[SDL_SCANCODE_UP] && onGround) {
 			setSpeed(0, -10);
-		}else if(keyStates[SDL_SCANCODE_RETURN]){
+			direction = UP;
+		} else if (keyStates[SDL_SCANCODE_DOWN]) {
+			direction = DOWN;
+		} else if (keyStates[SDL_SCANCODE_RETURN]) {
 			shoot();
 		}
+	}
+}
+
+void Tank::draw(SDL_Renderer *renderer) {
+	Entity::draw(renderer);
+
+	SDL_Rect outline = boundingBox;
+
+	if (health == GREEN) {
+		SDL_SetRenderDrawColor(renderer, 0x00, 0xFF, 0x00, 0xFF);
+	} else if (health == ORANGE) {
+		SDL_SetRenderDrawColor(renderer, 0xFF, 0xA5, 0x00, 0xFF);
+	} else if (health == RED) {
+		SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF);
+	}
+
+	for (int i = 0; i < 3; i++) {
+		SDL_RenderDrawRect(renderer, &outline);
+		outline.x += 1;
+		outline.y += 1;
+		outline.w -= 2;
+		outline.h -= 2;
+	}
+
+	for (auto it = projectiles.begin(); it != projectiles.end(); it++) {
+		Projectile p = *it;
+		p.draw(renderer);
+	}
+}
+
+void Tank::move(SDL_Rect *collisionTarget) {
+	Entity::move(collisionTarget);
+
+	for (int i = 0; i < projectiles.size(); i++) {
+		if (projectiles[i].move(collisionTarget)) {
+			projectiles.erase(projectiles.begin() + i);
+		}
+	}
+}
+
+void Tank::move(vector<SDL_Rect> collisionTargets) {
+	Entity::move(collisionTargets);
+
+	for (int i = 0; i < projectiles.size(); i++) {
+		if (projectiles[i].move(collisionTargets)) {
+			projectiles.erase(projectiles.begin() + i);
+		}
+	}
+}
+
+void Tank::setDamage() {
+	if (health == GREEN) {
+		health = ORANGE;
+	} else if (health == ORANGE) {
+		health = RED;
+	} else if (health == RED) {
+		isDead = true;
 	}
 }
